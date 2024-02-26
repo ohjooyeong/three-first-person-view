@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+// import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshObject } from "./MeshObject";
 
@@ -29,9 +29,10 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(0, 3, 7);
 scene.add(camera);
 
-// Controls
-const controls = new OrbitControls(camera, renderer.domElement);
-const loader = new GLTFLoader();
+// // Controls
+// const controls = new OrbitControls(camera, renderer.domElement);
+const gltfLoader = new GLTFLoader();
+const textureLoader = new THREE.TextureLoader();
 
 // Light
 const ambientLight = new THREE.AmbientLight("white", 1);
@@ -85,7 +86,7 @@ const wall2 = new MeshObject({
 
 const desk = new MeshObject({
   scene,
-  loader,
+  loader: gltfLoader,
   name: "desk",
   width: 1.8,
   height: 0.8,
@@ -97,7 +98,7 @@ const desk = new MeshObject({
 
 const lamp = new MeshObject({
   scene,
-  loader,
+  loader: gltfLoader,
   name: "lamp",
   width: 0.5,
   height: 1.8,
@@ -108,7 +109,7 @@ const lamp = new MeshObject({
 
 const roboticVaccum = new MeshObject({
   scene,
-  loader,
+  loader: gltfLoader,
   name: "roboticVaccum",
   width: 0.5,
   height: 0.1,
@@ -118,14 +119,19 @@ const roboticVaccum = new MeshObject({
   modelSrc: "/models/vaccum.glb",
 });
 
-// Draw
-const clock = new THREE.Clock();
-function draw() {
-  renderer.render(scene, camera);
-  renderer.setAnimationLoop(draw);
-}
-
-draw();
+const magazine = new MeshObject({
+  scene,
+  loader: textureLoader,
+  name: "magazine",
+  width: 0.2,
+  height: 0.02,
+  depth: 0.29,
+  x: 0.7,
+  y: 1.32,
+  z: -2.2,
+  rotationX: THREE.MathUtils.degToRad(52),
+  mapSrc: "/models/magazine.jpg",
+});
 
 function setLayout() {
   camera.aspect = window.innerWidth / window.innerHeight; // aspect
@@ -133,5 +139,67 @@ function setLayout() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+let movementX = 0;
+let movementY = 0;
+function updateMovementValue(event) {
+  movementX = event.movementX * delta;
+  movementY = event.movementY * delta;
+}
+
+const euler = new THREE.Euler(0, 0, 0, "YXZ");
+const minPolarAngle = 0;
+const maxPolarAngle = Math.PI;
+function rotateCamera() {
+  euler.setFromQuaternion(camera.quaternion);
+  euler.y -= movementX;
+  euler.x -= movementY;
+  euler.x = Math.max(
+    Math.PI / 2 - maxPolarAngle,
+    Math.min(Math.PI / 2 - minPolarAngle, euler.x)
+  );
+
+  movementX -= movementX * 0.2;
+  movementY -= movementY * 0.2;
+  if (Math.abs(movementX) < 0.1) movementX = 0;
+  if (Math.abs(movementY) < 0.1) movementY = 0;
+
+  camera.quaternion.setFromEuler(euler);
+}
+
+function setMode(mode) {
+  document.body.dataset.mode = mode;
+
+  if (mode === "game") {
+    document.addEventListener("mousemove", updateMovementValue);
+  } else if (mode === "website") {
+    document.removeEventListener("mousemove", updateMovementValue);
+  }
+}
+
+// Draw
+const clock = new THREE.Clock();
+let delta;
+function draw() {
+  delta = clock.getDelta();
+
+  rotateCamera();
+  renderer.render(scene, camera);
+  renderer.setAnimationLoop(draw);
+}
+
+draw();
+
 // Events
 window.addEventListener("resize", setLayout);
+
+document.addEventListener("click", () => {
+  canvas.requestPointerLock();
+});
+
+document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement) {
+    setMode("game");
+  } else {
+    setMode("website");
+  }
+});
